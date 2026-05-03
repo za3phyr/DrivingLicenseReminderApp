@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  useColorScheme,
   Pressable,
   ScrollView,
 } from 'react-native';
@@ -12,10 +11,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebase';
 import AppButton from '../../components/ui/AppButton';
-import { Colors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 export default function RegisterScreen({ navigation }) {
-  const theme = Colors[useColorScheme() ?? 'light'];
+  const { theme } = useTheme();
 
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
@@ -31,10 +32,21 @@ export default function RegisterScreen({ navigation }) {
       setError('Please fill in all fields.');
       return;
     }
+    if (dob.length !== 10) {
+      setError('Please enter a valid date of birth (DD/MM/YYYY).');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        name,
+        surname,
+        dob,
+        email,
+        profileComplete: false,
+      });
     } catch (err) {
       setError(err.message);
     } finally {

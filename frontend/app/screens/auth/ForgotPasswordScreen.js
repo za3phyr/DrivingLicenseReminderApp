@@ -4,17 +4,16 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  useColorScheme,
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../../firebase';
 import AppButton from '../../components/ui/AppButton';
-import { Colors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function ForgotPasswordScreen({ navigation }) {
-  const theme = Colors[useColorScheme() ?? 'light'];
+  const { theme } = useTheme();
 
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);

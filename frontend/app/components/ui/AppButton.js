@@ -4,12 +4,10 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
-  useColorScheme,
 } from 'react-native';
-import { Colors } from '../../constants/theme';
-
+import { useTheme } from '../../context/ThemeContext';
 export default function AppButton({ title, onPress, loading = false, disabled = false }) {
-  const theme = Colors[useColorScheme() ?? 'light'];
+  const { theme } = useTheme();
 
   return (
     <TouchableOpacity

@@ -1,24 +1,29 @@
 import React from 'react';
+import { View, Text, Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { signOut } from 'firebase/auth';
+import { auth } from './app/firebase';
 import { AuthProvider, useAuth } from './app/context/AuthContext';
+import { ThemeProvider, useTheme } from './app/context/ThemeContext';
+import AppButton from './app/components/ui/AppButton';
 
+// Auth Screens
 import LoginScreen from './app/screens/auth/LoginScreen';
 import RegisterScreen from './app/screens/auth/RegisterScreen';
 import ForgotPasswordScreen from './app/screens/auth/ForgotPasswordScreen';
 
-import { View, Text, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { signOut } from 'firebase/auth';
-import { auth } from './app/firebase';
-import AppButton from './app/components/ui/AppButton';
+// Profile Screens
+import PersonalDetailsScreen from './app/screens/profile/PersonalDetailsScreen';
+import VehicleDetailsScreen from './app/screens/profile/VehicleDetailsScreen';
+import LicenseDetailsScreen from './app/screens/profile/LicenseDetailsScreen';
+import PreferencesScreen from './app/screens/profile/PreferencesScreen';
 
 const Stack = createStackNavigator();
 
 function HomeScreen() {
-  const { user } = useAuth();
+  const { theme } = useTheme();
 
   const handleLogout = async () => {
     try {
@@ -29,9 +34,9 @@ function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text>Logged in!</Text>
+        <Text style={{ color: theme.text }}>Dashboard (Coming Soon)</Text>
         <AppButton title="Logout" onPress={handleLogout} />
       </View>
     </SafeAreaView>
@@ -39,12 +44,32 @@ function HomeScreen() {
 }
 
 function AppNavigator() {
-  const { user } = useAuth();
+  const { user, profileComplete, loading } = useAuth();
+  const { theme } = useTheme();
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: theme.text }}>Loading...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {user ? (
-        <Stack.Screen name="Home" component={HomeScreen} />
+        <>
+          {!profileComplete ? (
+            <>
+              <Stack.Screen name="PersonalDetails" component={PersonalDetailsScreen} />
+              <Stack.Screen name="VehicleDetails" component={VehicleDetailsScreen} />
+              <Stack.Screen name="LicenseDetails" component={LicenseDetailsScreen} />
+              <Stack.Screen name="Preferences" component={PreferencesScreen} />
+            </>
+          ) : (
+            <Stack.Screen name="Home" component={HomeScreen} />
+          )}
+        </>
       ) : (
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
@@ -58,12 +83,12 @@ function AppNavigator() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
+    <ThemeProvider>
       <AuthProvider>
         <NavigationContainer>
           <AppNavigator />
         </NavigationContainer>
       </AuthProvider>
-    </SafeAreaProvider>
+    </ThemeProvider>
   );
 }
