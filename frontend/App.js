@@ -9,15 +9,32 @@ import LoginScreen from './app/screens/auth/LoginScreen';
 import RegisterScreen from './app/screens/auth/RegisterScreen';
 import ForgotPasswordScreen from './app/screens/auth/ForgotPasswordScreen';
 
-import { View, Text } from 'react-native';
+import { View, Text, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { signOut } from 'firebase/auth';
+import { auth } from './app/firebase';
+import AppButton from './app/components/ui/AppButton';
 
 const Stack = createStackNavigator();
 
 function HomeScreen() {
+  const { user } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    }
+  };
+
   return (
-    <View>
-      <Text>Logged in!</Text>
-    </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Logged in!</Text>
+        <AppButton title="Logout" onPress={handleLogout} />
+      </View>
+    </SafeAreaView>
   );
 }
 
