@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signOut } from 'firebase/auth';
 import { auth } from './app/firebase';
@@ -20,7 +20,7 @@ import VehicleDetailsScreen from './app/screens/profile/VehicleDetailsScreen';
 import LicenseDetailsScreen from './app/screens/profile/LicenseDetailsScreen';
 import PreferencesScreen from './app/screens/profile/PreferencesScreen';
 
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 
 function HomeScreen() {
   const { theme } = useTheme();
