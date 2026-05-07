@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, validator
 from app.services.firebase import firebase_auth, db
-from firebase_admin import firestore
+from firebase_admin import firestore, auth as firebase_auth_errors
 import re
 from datetime import datetime
 
@@ -59,6 +59,16 @@ class LoginRequest(BaseModel):
 @router.post("/register")
 async def register(data: RegisterRequest):
     try:
+        # Check if email already exists
+        try:
+            firebase_auth.get_user_by_email(data.email)
+            raise HTTPException(
+                status_code=400,
+                detail="An account with this email already exists. Please login instead."
+            )
+        except firebase_auth_errors.UserNotFoundError:
+            pass
+
         # Create user in Firebase Auth
         user = firebase_auth.create_user(
             email=data.email,
@@ -81,6 +91,8 @@ async def register(data: RegisterRequest):
             "uid": user.uid
         }
 
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -90,14 +102,23 @@ async def register(data: RegisterRequest):
 @router.post("/login")
 async def login(data: LoginRequest):
     try:
-        # Verify user exists in Firebase Auth
-        user = firebase_auth.get_user_by_email(data.email)
+        # Check if user exists
+        try:
+            user = firebase_auth.get_user_by_email(data.email)
+        except firebase_auth_errors.UserNotFoundError:
+            raise HTTPException(
+                status_code=401,
+                detail="No account found with this email address."
+            )
 
         # Get user profile from Firestore
         doc = db.collection("users").document(user.uid).get()
 
         if not doc.exists:
-            raise HTTPException(status_code=404, detail="User profile not found")
+            raise HTTPException(
+                status_code=404,
+                detail="User profile not found. Please contact support."
+            )
 
         profile = doc.to_dict()
 
@@ -119,8 +140,15 @@ async def login(data: LoginRequest):
 @router.post("/forgot-password")
 async def forgot_password(email: str):
     try:
-        # Verify user exists
-        firebase_auth.get_user_by_email(email)
+        try:
+            firebase_auth.get_user_by_email(email)
+        except firebase_auth_errors.UserNotFoundError:
+            raise HTTPException(
+                status_code=404,
+                detail="No account found with this email address."
+            )
         return {"message": "Password reset email sent"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

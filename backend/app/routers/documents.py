@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from app.services.firebase import db
 from firebase_admin import firestore
 from typing import Optional
+import re
+from datetime import datetime
 
 router = APIRouter()
 
@@ -13,6 +15,45 @@ class DocumentModel(BaseModel):
     expiryDate: str
     fileUrl: Optional[str] = None
     notes: Optional[str] = None
+
+    @validator('documentType')
+    def validate_document_type(cls, v):
+        valid_types = [
+            'Driving License',
+            'Vehicle Registration',
+            'Road Tax',
+            'Insurance',
+            'MOT Certificate',
+            'Other'
+        ]
+        if v not in valid_types:
+            raise ValueError(f'Document type must be one of: {", ".join(valid_types)}')
+        return v
+
+    @validator('documentName')
+    def validate_document_name(cls, v):
+        if len(v.strip()) < 2:
+            raise ValueError('Document name must be at least 2 characters long')
+        if len(v.strip()) > 100:
+            raise ValueError('Document name must be at most 100 characters long')
+        return v
+
+    @validator('expiryDate')
+    def validate_expiry_date(cls, v):
+        pattern = r'^\d{2}/\d{2}/\d{4}$'
+        if not re.match(pattern, v):
+            raise ValueError('Expiry date must be in DD/MM/YYYY format')
+        try:
+            datetime.strptime(v, "%d/%m/%Y")
+        except ValueError:
+            raise ValueError('Please enter a valid expiry date')
+        return v
+
+    @validator('notes')
+    def validate_notes(cls, v):
+        if v and len(v) > 500:
+            raise ValueError('Notes must be at most 500 characters long')
+        return v
 
 # ─── Get All Documents ───
 @router.get("/{user_id}")
@@ -45,6 +86,8 @@ async def add_document(user_id: str, data: DocumentModel):
             "message": "Document added successfully",
             "documentId": doc_ref.id
         }
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -60,6 +103,8 @@ async def update_document(user_id: str, document_id: str, data: DocumentModel):
             "notes": data.notes,
         })
         return {"message": "Document updated successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -76,20 +121,17 @@ async def delete_document(user_id: str, document_id: str):
 @router.get("/{user_id}/{document_id}/status")
 async def get_document_status(user_id: str, document_id: str):
     try:
-        from datetime import datetime
         doc = db.collection("users").document(user_id).collection("documents").document(document_id).get()
         if not doc.exists:
             raise HTTPException(status_code=404, detail="Document not found")
-        
+
         data = doc.to_dict()
         expiry_str = data.get("expiryDate")
-        
-        # Parse expiry date
+
         expiry_date = datetime.strptime(expiry_str, "%d/%m/%Y")
         today = datetime.today()
         days_remaining = (expiry_date - today).days
 
-        # Determine status and colour
         if days_remaining < 0:
             status = "Expired"
             colour = "red"
@@ -102,9 +144,6 @@ async def get_document_status(user_id: str, document_id: str):
         elif days_remaining <= 30:
             status = "Reminder"
             colour = "blue"
-        elif days_remaining <= 90:
-            status = "Valid"
-            colour = "gray"
         else:
             status = "Valid"
             colour = "gray"

@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from app.services.firebase import db
 from firebase_admin import firestore
+import re
+from datetime import datetime
 
 router = APIRouter()
 
@@ -13,6 +15,58 @@ class VehicleModel(BaseModel):
     insuranceProvider: str
     insuranceExpiry: str
     roadTaxExpiry: str
+
+    @validator('model')
+    def validate_model(cls, v):
+        if len(v.strip()) < 2:
+            raise ValueError('Vehicle model must be at least 2 characters long')
+        return v
+
+    @validator('plate')
+    def validate_plate(cls, v):
+        if len(v.strip()) < 2:
+            raise ValueError('Plate number must be at least 2 characters long')
+        if len(v.strip()) > 10:
+            raise ValueError('Plate number must be at most 10 characters long')
+        return v.upper()
+
+    @validator('series')
+    def validate_series(cls, v):
+        if len(v.strip()) < 5:
+            raise ValueError('Series/Chassis number must be at least 5 characters long')
+        return v.upper()
+
+    @validator('insuranceProvider')
+    def validate_insurance_provider(cls, v):
+        if len(v.strip()) < 2:
+            raise ValueError('Insurance provider must be at least 2 characters long')
+        return v
+
+    @validator('insuranceExpiry')
+    def validate_insurance_expiry(cls, v):
+        pattern = r'^\d{2}/\d{2}/\d{4}$'
+        if not re.match(pattern, v):
+            raise ValueError('Insurance expiry must be in DD/MM/YYYY format')
+        try:
+            expiry = datetime.strptime(v, "%d/%m/%Y")
+            if expiry < datetime.today():
+                raise ValueError('Insurance has already expired')
+        except ValueError as e:
+            raise e
+        return v
+
+    @validator('roadTaxExpiry')
+    def validate_road_tax_expiry(cls, v):
+        pattern = r'^\d{2}/\d{2}/\d{4}$'
+        if not re.match(pattern, v):
+            raise ValueError('Road tax expiry must be in DD/MM/YYYY format')
+        try:
+            expiry = datetime.strptime(v, "%d/%m/%Y")
+            if expiry < datetime.today():
+                raise ValueError('Road tax has already expired')
+        except ValueError as e:
+            raise e
+        return v
 
 # ─── Get All Vehicles ───
 @router.get("/{user_id}")
@@ -46,6 +100,8 @@ async def add_vehicle(user_id: str, data: VehicleModel):
             "message": "Vehicle added successfully",
             "vehicleId": vehicle_ref.id
         }
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -62,6 +118,8 @@ async def update_vehicle(user_id: str, vehicle_id: str, data: VehicleModel):
             "roadTaxExpiry": data.roadTaxExpiry,
         })
         return {"message": "Vehicle updated successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
