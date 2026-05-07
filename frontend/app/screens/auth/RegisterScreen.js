@@ -8,12 +8,9 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../firebase';
-import AppButton from '../../components/ui/AppButton';
 import { useTheme } from '../../context/ThemeContext';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
+import AppButton from '../../components/ui/AppButton';
+import { registerUser } from '../../services/api';
 
 export default function RegisterScreen({ navigation }) {
   const { theme } = useTheme();
@@ -39,14 +36,7 @@ export default function RegisterScreen({ navigation }) {
     setError('');
     setLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
-        name,
-        surname,
-        dob,
-        email,
-        profileComplete: false,
-      });
+      await registerUser(email, password, name, surname, dob);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -90,29 +80,27 @@ export default function RegisterScreen({ navigation }) {
         />
 
         <TextInput
-  placeholder="Date of Birth (DD/MM/YYYY)"
-  placeholderTextColor={theme.muted}
-  value={dob}
-  onChangeText={(text) => {
-    // Remove non-numeric characters
-    const cleaned = text.replace(/\D/g, '');
-    // Add slashes automatically
-    let formatted = cleaned;
-    if (cleaned.length >= 3 && cleaned.length <= 4) {
-      formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
-    } else if (cleaned.length > 4) {
-      formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4) + '/' + cleaned.slice(4, 8);
-    }
-    setDob(formatted);
-  }}
-  keyboardType="numeric"
-  maxLength={10}
-  style={[styles.input, {
-    backgroundColor: theme.card,
-    borderColor: theme.border,
-    color: theme.text,
-  }]}
-/>
+          placeholder="Date of Birth (DD/MM/YYYY)"
+          placeholderTextColor={theme.muted}
+          value={dob}
+          onChangeText={(text) => {
+            const cleaned = text.replace(/\D/g, '');
+            let formatted = cleaned;
+            if (cleaned.length >= 3 && cleaned.length <= 4) {
+              formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
+            } else if (cleaned.length > 4) {
+              formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4) + '/' + cleaned.slice(4, 8);
+            }
+            setDob(formatted);
+          }}
+          keyboardType="numeric"
+          maxLength={10}
+          style={[styles.input, {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            color: theme.text,
+          }]}
+        />
 
         <TextInput
           placeholder="Email"
@@ -163,42 +151,17 @@ export default function RegisterScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
-  container: {
-    padding: 24,
-    justifyContent: 'center',
-    flexGrow: 1,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 15,
-    marginBottom: 25,
-  },
+  safe: { flex: 1 },
+  container: { padding: 24, flexGrow: 1, justifyContent: 'center' },
+  title: { fontSize: 26, fontWeight: '700', marginBottom: 6 },
+  subtitle: { fontSize: 15, marginBottom: 25 },
   input: {
     borderWidth: 1,
     padding: 12,
     borderRadius: 8,
     marginBottom: 10,
   },
-  toggle: {
-    fontSize: 13,
-    marginBottom: 12,
-    alignSelf: 'flex-end',
-  },
-  error: {
-    color: 'red',
-    marginBottom: 10,
-    fontSize: 13,
-  },
-  link: {
-    marginTop: 16,
-    textAlign: 'center',
-    fontSize: 14,
-  },
+  toggle: { fontSize: 13, marginBottom: 12, alignSelf: 'flex-end' },
+  error: { color: 'red', marginBottom: 10, fontSize: 13 },
+  link: { marginTop: 16, textAlign: 'center', fontSize: 14 },
 });
