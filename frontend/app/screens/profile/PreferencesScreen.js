@@ -7,11 +7,10 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import AppButton from '../../components/ui/AppButton';
+import { updatePreferences } from '../../services/api';
 
 export default function PreferencesScreen() {
   const { theme, toggleTheme, isDark } = useTheme();
@@ -26,18 +25,15 @@ export default function PreferencesScreen() {
   const handleFinish = async () => {
     setLoading(true);
     try {
-      await setDoc(doc(db, 'users', user.uid), {
-        preferences: {
-          emailNotif,
-          pushNotif,
-          darkMode: isDark,
-          language,
-        },
-        profileComplete: true,
-      }, { merge: true });
+      await updatePreferences(user.uid, {
+        emailNotif,
+        pushNotif,
+        darkMode: isDark,
+        language,
+      });
       setProfileComplete(true);
     } catch (err) {
-      setError('Something went wrong. Please try again.');
+      setError(err.message);
     } finally {
       setLoading(false);
     }

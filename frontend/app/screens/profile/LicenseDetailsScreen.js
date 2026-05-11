@@ -8,11 +8,10 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import AppButton from '../../components/ui/AppButton';
 import { useTheme } from '../../context/ThemeContext';
+import { updateLicense } from '../../services/api';
 
 export default function LicenseDetailsScreen({ navigation }) {
   const { theme } = useTheme();
@@ -42,25 +41,32 @@ export default function LicenseDetailsScreen({ navigation }) {
       setError('Please fill in all fields.');
       return;
     }
+    const validTypes = ['A', 'A1', 'A2', 'B', 'B1', 'C', 'C1', 'D', 'D1', 'E'];
+    if (!validTypes.includes(licenseType.toUpperCase())) {
+      setError('License type must be one of: A, A1, A2, B, B1, C, C1, D, D1, E');
+      return;
+    }
     if (issueDate.length !== 10 || expiryDate.length !== 10) {
       setError('Please enter valid dates (DD/MM/YYYY).');
+      return;
+    }
+    if (issuingState.trim().length < 2) {
+      setError('Issuing state must be at least 2 characters.');
       return;
     }
     setError('');
     setLoading(true);
     try {
-      await setDoc(doc(db, 'users', user.uid), {
-        license: {
-          licenseType,
-          issueDate,
-          expiryDate,
-          issuingState,
-          isInternational,
-        },
-      }, { merge: true });
+      await updateLicense(user.uid, {
+        licenseType,
+        issueDate,
+        expiryDate,
+        issuingState,
+        isInternational,
+      });
       navigation.navigate('Preferences');
     } catch (err) {
-      setError('Something went wrong. Please try again.');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -169,8 +175,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginTop: 8,
   },
-  switchLabel: {
-    fontSize: 15,
-  },
+  switchLabel: { fontSize: 15 },
   error: { color: 'red', marginBottom: 10, fontSize: 13 },
 });

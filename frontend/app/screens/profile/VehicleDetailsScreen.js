@@ -7,11 +7,10 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import AppButton from '../../components/ui/AppButton';
 import { useTheme } from '../../context/ThemeContext';
+import { updateVehicle } from '../../services/api';
 
 export default function VehicleDetailsScreen({ navigation }) {
   const { theme } = useTheme();
@@ -28,19 +27,25 @@ export default function VehicleDetailsScreen({ navigation }) {
       setError('Please fill in all fields.');
       return;
     }
+    if (model.trim().length < 2) {
+      setError('Vehicle model must be at least 2 characters long.');
+      return;
+    }
+    if (plate.trim().length < 2 || plate.trim().length > 10) {
+      setError('Plate number must be between 2 and 10 characters.');
+      return;
+    }
+    if (series.trim().length < 5) {
+      setError('Series/Chassis number must be at least 5 characters.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      await setDoc(doc(db, 'users', user.uid), {
-        vehicle: {
-          model,
-          plate,
-          series,
-        },
-      }, { merge: true });
+      await updateVehicle(user.uid, { model, plate, series });
       navigation.navigate('LicenseDetails');
     } catch (err) {
-      setError('Something went wrong. Please try again.');
+      setError(err.message);
     } finally {
       setLoading(false);
     }

@@ -8,6 +8,8 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../../firebase';
 import { useTheme } from '../../context/ThemeContext';
 import AppButton from '../../components/ui/AppButton';
 import { registerUser } from '../../services/api';
@@ -29,14 +31,52 @@ export default function RegisterScreen({ navigation }) {
       setError('Please fill in all fields.');
       return;
     }
+    if (!name.replace(' ', '').match(/^[a-zA-Z]+$/)) {
+      setError('Name must contain only letters.');
+      return;
+    }
+    if (!surname.replace(' ', '').match(/^[a-zA-Z]+$/)) {
+      setError('Surname must contain only letters.');
+      return;
+    }
     if (dob.length !== 10) {
       setError('Please enter a valid date of birth (DD/MM/YYYY).');
+      return;
+    }
+    const parts = dob.split('/');
+    const dobDate = new Date(parts[2], parts[1] - 1, parts[0]);
+    const today = new Date();
+    const age = today.getFullYear() - dobDate.getFullYear();
+    if (age < 18) {
+      setError('You must be at least 18 years old to register.');
+      return;
+    }
+    const emailPattern = /^[\w\.-]+@[\w\.-]+\.\w+$/;
+    if (!emailPattern.test(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+    if (!/[A-Z]/.test(password)) {
+      setError('Password must contain at least one uppercase letter.');
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      setError('Password must contain at least one number.');
+      return;
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password)) {
+      setError('Password must contain at least one special character.');
       return;
     }
     setError('');
     setLoading(true);
     try {
       await registerUser(email, password, name, surname, dob);
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
       setError(err.message);
     } finally {

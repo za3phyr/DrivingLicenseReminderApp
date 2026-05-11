@@ -25,13 +25,22 @@ export default function ForgotPasswordScreen({ navigation }) {
       setError('Please enter your email address.');
       return;
     }
+    const emailPattern = /^[\w\.-]+@[\w\.-]+\.\w+$/;
+    if (!emailPattern.test(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
       await sendPasswordResetEmail(auth, email);
       setSuccess(true);
     } catch (err) {
-      setError(err.message);
+      if (err.code === 'auth/user-not-found') {
+        setError('No account found with this email address.');
+      } else {
+        setError('Something went wrong. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -69,9 +78,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                 color: theme.text,
               }]}
             />
-
             {error ? <Text style={styles.error}>{error}</Text> : null}
-
             <AppButton title="Send Reset Email" onPress={handleReset} loading={loading} />
           </>
         )}
@@ -88,34 +95,17 @@ export default function ForgotPasswordScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 15,
-    marginBottom: 25,
-  },
+  safe: { flex: 1 },
+  container: { flex: 1, padding: 24, justifyContent: 'center' },
+  title: { fontSize: 26, fontWeight: '700', marginBottom: 6 },
+  subtitle: { fontSize: 15, marginBottom: 25 },
   input: {
     borderWidth: 1,
     padding: 12,
     borderRadius: 8,
     marginBottom: 10,
   },
-  error: {
-    color: 'red',
-    marginBottom: 10,
-    fontSize: 13,
-  },
+  error: { color: 'red', marginBottom: 10, fontSize: 13 },
   successBox: {
     backgroundColor: '#DCFCE7',
     padding: 16,
@@ -127,9 +117,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  link: {
-    marginTop: 16,
-    textAlign: 'center',
-    fontSize: 14,
-  },
+  link: { marginTop: 16, textAlign: 'center', fontSize: 14 },
 });
