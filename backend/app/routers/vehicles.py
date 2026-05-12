@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, validator
 from app.services.firebase import db
+from app.services.jwt import verify_token
 from firebase_admin import firestore
 import re
 from datetime import datetime
@@ -70,8 +71,10 @@ class VehicleModel(BaseModel):
 
 # ─── Get All Vehicles ───
 @router.get("/{user_id}")
-async def get_vehicles(user_id: str):
+async def get_vehicles(user_id: str, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
         vehicles = db.collection("users").document(user_id).collection("vehicles").stream()
         result = []
         for vehicle in vehicles:
@@ -79,13 +82,19 @@ async def get_vehicles(user_id: str):
             v["id"] = vehicle.id
             result.append(v)
         return {"vehicles": result}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 # ─── Add Vehicle ───
 @router.post("/{user_id}")
-async def add_vehicle(user_id: str, data: VehicleModel):
+async def add_vehicle(user_id: str, data: VehicleModel, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
+
+        # Save full vehicle details to subcollection
         vehicle_ref = db.collection("users").document(user_id).collection("vehicles").document()
         vehicle_ref.set({
             "model": data.model,
@@ -96,10 +105,33 @@ async def add_vehicle(user_id: str, data: VehicleModel):
             "roadTaxExpiry": data.roadTaxExpiry,
             "createdAt": firestore.SERVER_TIMESTAMP
         })
+
+        # Auto create Insurance document record
+        db.collection("users").document(user_id).collection("documents").add({
+            "documentType": "Insurance",
+            "documentName": f"{data.model} Insurance — {data.insuranceProvider}",
+            "expiryDate": data.insuranceExpiry,
+            "fileUrl": None,
+            "notes": f"Vehicle: {data.plate}",
+            "autoCreated": True,
+        })
+
+        # Auto create Road Tax document record
+        db.collection("users").document(user_id).collection("documents").add({
+            "documentType": "Road Tax",
+            "documentName": f"{data.model} Road Tax",
+            "expiryDate": data.roadTaxExpiry,
+            "fileUrl": None,
+            "notes": f"Vehicle: {data.plate}",
+            "autoCreated": True,
+        })
+
         return {
             "message": "Vehicle added successfully",
             "vehicleId": vehicle_ref.id
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -107,8 +139,10 @@ async def add_vehicle(user_id: str, data: VehicleModel):
 
 # ─── Update Vehicle ───
 @router.put("/{user_id}/{vehicle_id}")
-async def update_vehicle(user_id: str, vehicle_id: str, data: VehicleModel):
+async def update_vehicle(user_id: str, vehicle_id: str, data: VehicleModel, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
         db.collection("users").document(user_id).collection("vehicles").document(vehicle_id).update({
             "model": data.model,
             "plate": data.plate,
@@ -118,6 +152,8 @@ async def update_vehicle(user_id: str, vehicle_id: str, data: VehicleModel):
             "roadTaxExpiry": data.roadTaxExpiry,
         })
         return {"message": "Vehicle updated successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -125,9 +161,15 @@ async def update_vehicle(user_id: str, vehicle_id: str, data: VehicleModel):
 
 # ─── Delete Vehicle ───
 @router.delete("/{user_id}/{vehicle_id}")
-async def delete_vehicle(user_id: str, vehicle_id: str):
+async def delete_vehicle(user_id: str, vehicle_id: str, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
         db.collection("users").document(user_id).collection("vehicles").document(vehicle_id).delete()
         return {"message": "Vehicle deleted successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+    

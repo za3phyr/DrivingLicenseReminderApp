@@ -1,9 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.services.firebase import db
-from firebase_admin import firestore
+from app.services.jwt import verify_token
 from datetime import datetime
-from typing import Optional
 
 router = APIRouter()
 
@@ -18,9 +17,11 @@ class ReminderSettings(BaseModel):
 
 # ─── Get Reminders ───
 @router.get("/{user_id}")
-async def get_reminders(user_id: str):
+async def get_reminders(user_id: str, token: dict = Depends(verify_token)):
     try:
-        # Get all documents for the user
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
+
         docs = db.collection("users").document(user_id).collection("documents").stream()
         reminders = []
 
@@ -31,12 +32,10 @@ async def get_reminders(user_id: str):
             if not expiry_str:
                 continue
 
-            # Calculate days remaining
             expiry_date = datetime.strptime(expiry_str, "%d/%m/%Y")
             today = datetime.today()
             days_remaining = (expiry_date - today).days
 
-            # Determine status and colour
             if days_remaining < 0:
                 status = "Expired"
                 colour = "red"
@@ -66,18 +65,21 @@ async def get_reminders(user_id: str):
                 "colour": colour
             })
 
-        # Sort by days remaining
         reminders.sort(key=lambda x: x["daysRemaining"])
 
         return {"reminders": reminders}
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 # ─── Update Reminder Settings ───
 @router.put("/{user_id}")
-async def update_reminder_settings(user_id: str, data: ReminderSettings):
+async def update_reminder_settings(user_id: str, data: ReminderSettings, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
         db.collection("users").document(user_id).update({
             "reminderSettings": {
                 "emailNotif": data.emailNotif,
@@ -89,5 +91,7 @@ async def update_reminder_settings(user_id: str, data: ReminderSettings):
             }
         })
         return {"message": "Reminder settings updated successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

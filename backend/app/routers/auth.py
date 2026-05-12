@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 import requests as http_requests
 import os
+from app.services.jwt import create_access_token
 
 router = APIRouter()
 
@@ -136,6 +137,7 @@ async def login(data: LoginRequest):
 
         return {
             "message": "Login successful",
+            "token": create_access_token(user.uid, user.email),
             "uid": user.uid,
             "name": profile.get("name"),
             "surname": profile.get("surname"),

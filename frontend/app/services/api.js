@@ -9,6 +9,20 @@ const handleResponse = async (response) => {
   return data;
 };
 
+// ─── Token Storage ───
+let authToken = null;
+
+export const setAuthToken = (token) => {
+  authToken = token;
+};
+
+export const getAuthToken = () => authToken;
+
+const authHeaders = () => ({
+  'Content-Type': 'application/json',
+  ...(authToken && { Authorization: `Bearer ${authToken}` }),
+});
+
 // ─── Auth ───
 export const registerUser = async (email, password, name, surname, dob) => {
   const response = await fetch(`${BASE_URL}/auth/register`, {
@@ -37,23 +51,16 @@ export const forgotPassword = async (email) => {
 
 // ─── Profile ───
 export const getProfile = async (userId) => {
-  const response = await fetch(`${BASE_URL}/profile/${userId}`);
+  const response = await fetch(`${BASE_URL}/profile/${userId}`, {
+    headers: authHeaders(),
+  });
   return handleResponse(response);
 };
 
 export const updatePersonal = async (userId, data) => {
   const response = await fetch(`${BASE_URL}/profile/${userId}/personal`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  return handleResponse(response);
-};
-
-export const updateVehicle = async (userId, data) => {
-  const response = await fetch(`${BASE_URL}/profile/${userId}/vehicle`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(data),
   });
   return handleResponse(response);
@@ -62,7 +69,7 @@ export const updateVehicle = async (userId, data) => {
 export const updateLicense = async (userId, data) => {
   const response = await fetch(`${BASE_URL}/profile/${userId}/license`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(data),
   });
   return handleResponse(response);
@@ -71,7 +78,7 @@ export const updateLicense = async (userId, data) => {
 export const updatePreferences = async (userId, data) => {
   const response = await fetch(`${BASE_URL}/profile/${userId}/preferences`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(data),
   });
   return handleResponse(response);
@@ -79,14 +86,16 @@ export const updatePreferences = async (userId, data) => {
 
 // ─── Vehicles ───
 export const getVehicles = async (userId) => {
-  const response = await fetch(`${BASE_URL}/vehicles/${userId}`);
+  const response = await fetch(`${BASE_URL}/vehicles/${userId}`, {
+    headers: authHeaders(),
+  });
   return handleResponse(response);
 };
 
 export const addVehicle = async (userId, data) => {
   const response = await fetch(`${BASE_URL}/vehicles/${userId}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(data),
   });
   return handleResponse(response);
@@ -95,7 +104,7 @@ export const addVehicle = async (userId, data) => {
 export const updateVehicleById = async (userId, vehicleId, data) => {
   const response = await fetch(`${BASE_URL}/vehicles/${userId}/${vehicleId}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(data),
   });
   return handleResponse(response);
@@ -104,20 +113,23 @@ export const updateVehicleById = async (userId, vehicleId, data) => {
 export const deleteVehicle = async (userId, vehicleId) => {
   const response = await fetch(`${BASE_URL}/vehicles/${userId}/${vehicleId}`, {
     method: 'DELETE',
+    headers: authHeaders(),
   });
   return handleResponse(response);
 };
 
 // ─── Documents ───
 export const getDocuments = async (userId) => {
-  const response = await fetch(`${BASE_URL}/documents/${userId}`);
+  const response = await fetch(`${BASE_URL}/documents/${userId}`, {
+    headers: authHeaders(),
+  });
   return handleResponse(response);
 };
 
 export const addDocument = async (userId, data) => {
   const response = await fetch(`${BASE_URL}/documents/${userId}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(data),
   });
   return handleResponse(response);
@@ -126,25 +138,30 @@ export const addDocument = async (userId, data) => {
 export const deleteDocument = async (userId, documentId) => {
   const response = await fetch(`${BASE_URL}/documents/${userId}/${documentId}`, {
     method: 'DELETE',
+    headers: authHeaders(),
   });
   return handleResponse(response);
 };
 
 export const getDocumentStatus = async (userId, documentId) => {
-  const response = await fetch(`${BASE_URL}/documents/${userId}/${documentId}/status`);
+  const response = await fetch(`${BASE_URL}/documents/${userId}/${documentId}/status`, {
+    headers: authHeaders(),
+  });
   return handleResponse(response);
 };
 
 // ─── Reminders ───
 export const getReminders = async (userId) => {
-  const response = await fetch(`${BASE_URL}/reminders/${userId}`);
+  const response = await fetch(`${BASE_URL}/reminders/${userId}`, {
+    headers: authHeaders(),
+  });
   return handleResponse(response);
 };
 
 export const updateReminderSettings = async (userId, data) => {
   const response = await fetch(`${BASE_URL}/reminders/${userId}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify(data),
   });
   return handleResponse(response);

@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import AppButton from '../../components/ui/AppButton';
 import { useTheme } from '../../context/ThemeContext';
-import { updateVehicle } from '../../services/api';
+import { addVehicle } from '../../services/api';
 
 export default function VehicleDetailsScreen({ navigation }) {
   const { theme } = useTheme();
@@ -19,11 +19,25 @@ export default function VehicleDetailsScreen({ navigation }) {
   const [model, setModel] = useState('');
   const [plate, setPlate] = useState('');
   const [series, setSeries] = useState('');
+  const [insuranceProvider, setInsuranceProvider] = useState('');
+  const [insuranceExpiry, setInsuranceExpiry] = useState('');
+  const [roadTaxExpiry, setRoadTaxExpiry] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const formatDate = (text) => {
+    const cleaned = text.replace(/\D/g, '');
+    let formatted = cleaned;
+    if (cleaned.length >= 3 && cleaned.length <= 4) {
+      formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
+    } else if (cleaned.length > 4) {
+      formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4) + '/' + cleaned.slice(4, 8);
+    }
+    return formatted;
+  };
+
   const handleNext = async () => {
-    if (!model.trim() || !plate.trim() || !series.trim()) {
+    if (!model.trim() || !plate.trim() || !series.trim() || !insuranceProvider.trim() || !insuranceExpiry.trim() || !roadTaxExpiry.trim()) {
       setError('Please fill in all fields.');
       return;
     }
@@ -39,10 +53,25 @@ export default function VehicleDetailsScreen({ navigation }) {
       setError('Series/Chassis number must be at least 5 characters.');
       return;
     }
+    if (insuranceExpiry.length !== 10) {
+      setError('Please enter a valid insurance expiry date (DD/MM/YYYY).');
+      return;
+    }
+    if (roadTaxExpiry.length !== 10) {
+      setError('Please enter a valid road tax expiry date (DD/MM/YYYY).');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      await updateVehicle(user.uid, { model, plate, series });
+      await addVehicle(user.uid, {
+        model,
+        plate,
+        series,
+        insuranceProvider,
+        insuranceExpiry,
+        roadTaxExpiry,
+      });
       navigation.navigate('LicenseDetails');
     } catch (err) {
       setError(err.message);
@@ -92,6 +121,46 @@ export default function VehicleDetailsScreen({ navigation }) {
           value={series}
           onChangeText={setSeries}
           autoCapitalize="characters"
+          style={[styles.input, {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            color: theme.text,
+          }]}
+        />
+
+        <TextInput
+          placeholder="Insurance Provider (e.g. AXA Insurance)"
+          placeholderTextColor={theme.muted}
+          value={insuranceProvider}
+          onChangeText={setInsuranceProvider}
+          style={[styles.input, {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            color: theme.text,
+          }]}
+        />
+
+        <TextInput
+          placeholder="Insurance Expiry (DD/MM/YYYY)"
+          placeholderTextColor={theme.muted}
+          value={insuranceExpiry}
+          onChangeText={(text) => setInsuranceExpiry(formatDate(text))}
+          keyboardType="numeric"
+          maxLength={10}
+          style={[styles.input, {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            color: theme.text,
+          }]}
+        />
+
+        <TextInput
+          placeholder="Road Tax Expiry (DD/MM/YYYY)"
+          placeholderTextColor={theme.muted}
+          value={roadTaxExpiry}
+          onChangeText={(text) => setRoadTaxExpiry(formatDate(text))}
+          keyboardType="numeric"
+          maxLength={10}
           style={[styles.input, {
             backgroundColor: theme.card,
             borderColor: theme.border,

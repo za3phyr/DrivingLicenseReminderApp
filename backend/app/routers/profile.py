@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, validator
 from app.services.firebase import db
+from app.services.jwt import verify_token
 from typing import Optional
 import re
 from datetime import datetime
@@ -45,31 +46,6 @@ class PersonalDetails(BaseModel):
         except ValueError as e:
             raise e
         return v
-
-class VehicleDetails(BaseModel):
-    model: str
-    plate: str
-    series: str
-
-    @validator('model')
-    def validate_model(cls, v):
-        if len(v.strip()) < 2:
-            raise ValueError('Vehicle model must be at least 2 characters long')
-        return v
-
-    @validator('plate')
-    def validate_plate(cls, v):
-        if len(v.strip()) < 2:
-            raise ValueError('Plate number must be at least 2 characters long')
-        if len(v.strip()) > 10:
-            raise ValueError('Plate number must be at most 10 characters long')
-        return v.upper()
-
-    @validator('series')
-    def validate_series(cls, v):
-        if len(v.strip()) < 5:
-            raise ValueError('Series/Chassis number must be at least 5 characters long')
-        return v.upper()
 
 class LicenseDetails(BaseModel):
     licenseType: str
@@ -126,12 +102,47 @@ class PreferencesDetails(BaseModel):
 
 # ─── Get Profile ───
 @router.get("/{user_id}")
-async def get_profile(user_id: str):
+async def get_profile(user_id: str, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
         doc = db.collection("users").document(user_id).get()
         if not doc.exists:
             raise HTTPException(status_code=404, detail="User not found")
-        return doc.to_dict()
+        
+        data = doc.to_dict()
+
+        # Fetch all vehicles from subcollection
+        vehicles_ref = db.collection("users").document(user_id).collection("vehicles").stream()
+        vehicles = []
+        for vehicle in vehicles_ref:
+            v = vehicle.to_dict()
+            vehicles.append({
+                "id": vehicle.id,
+                "model": v.get("model"),
+                "plate": v.get("plate"),
+                "series": v.get("series"),
+            })
+
+        # Build response
+        response = {
+            "name": data.get("name"),
+            "surname": data.get("surname"),
+            "dob": data.get("dob"),
+            "email": data.get("email"),
+            "profileComplete": data.get("profileComplete"),
+            "createdAt": data.get("createdAt"),
+        }
+
+        if vehicles:
+            response["vehicles"] = vehicles
+        if data.get("license"):
+            response["license"] = data.get("license")
+        if data.get("preferences"):
+            response["preferences"] = data.get("preferences")
+
+        return response
+
     except HTTPException:
         raise
     except Exception as e:
@@ -139,31 +150,18 @@ async def get_profile(user_id: str):
 
 # ─── Update Personal Details ───
 @router.put("/{user_id}/personal")
-async def update_personal(user_id: str, data: PersonalDetails):
+async def update_personal(user_id: str, data: PersonalDetails, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
         db.collection("users").document(user_id).update({
             "name": data.name,
             "surname": data.surname,
             "dob": data.dob,
         })
         return {"message": "Personal details updated successfully"}
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-# ─── Update Vehicle Details ───
-@router.put("/{user_id}/vehicle")
-async def update_vehicle(user_id: str, data: VehicleDetails):
-    try:
-        db.collection("users").document(user_id).update({
-            "vehicle": {
-                "model": data.model,
-                "plate": data.plate,
-                "series": data.series,
-            }
-        })
-        return {"message": "Vehicle details updated successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -171,8 +169,12 @@ async def update_vehicle(user_id: str, data: VehicleDetails):
 
 # ─── Update License Details ───
 @router.put("/{user_id}/license")
-async def update_license(user_id: str, data: LicenseDetails):
+async def update_license(user_id: str, data: LicenseDetails, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
+        
+        # Update license in main user document
         db.collection("users").document(user_id).update({
             "license": {
                 "licenseType": data.licenseType,
@@ -182,7 +184,33 @@ async def update_license(user_id: str, data: LicenseDetails):
                 "isInternational": data.isInternational,
             }
         })
+
+        # Auto create document record for reminder system
+        existing_docs = db.collection("users").document(user_id).collection("documents")\
+            .where("documentType", "==", "Driving License").stream()
+        
+        existing_list = list(existing_docs)
+
+        if existing_list:
+            # Update existing driving license document
+            existing_list[0].reference.update({
+                "expiryDate": data.expiryDate,
+                "documentName": f"{data.licenseType} Driving License",
+            })
+        else:
+            # Create new driving license document
+            db.collection("users").document(user_id).collection("documents").add({
+                "documentType": "Driving License",
+                "documentName": f"{data.licenseType} Driving License",
+                "expiryDate": data.expiryDate,
+                "fileUrl": None,
+                "notes": f"Issued by {data.issuingState}",
+                "autoCreated": True,
+            })
+
         return {"message": "License details updated successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -190,8 +218,10 @@ async def update_license(user_id: str, data: LicenseDetails):
 
 # ─── Update Preferences ───
 @router.put("/{user_id}/preferences")
-async def update_preferences(user_id: str, data: PreferencesDetails):
+async def update_preferences(user_id: str, data: PreferencesDetails, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
         db.collection("users").document(user_id).update({
             "preferences": {
                 "emailNotif": data.emailNotif,
@@ -202,6 +232,8 @@ async def update_preferences(user_id: str, data: PreferencesDetails):
             "profileComplete": True
         })
         return {"message": "Preferences updated and profile completed successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
+import { setAuthToken } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -11,12 +12,17 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+
+        // Get Firebase ID token and set it for API calls
+        const token = await firebaseUser.getIdToken();
+        setAuthToken(token);
+
         // Check if profile is complete in Firestore
         try {
-          const docRef = doc(db, 'users', user.uid);
+          const docRef = doc(db, 'users', firebaseUser.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             setProfileComplete(docSnap.data().profileComplete === true);
@@ -29,6 +35,7 @@ export function AuthProvider({ children }) {
       } else {
         setUser(null);
         setProfileComplete(false);
+        setAuthToken(null);
       }
       setLoading(false);
     });

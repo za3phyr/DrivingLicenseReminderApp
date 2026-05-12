@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, validator
 from app.services.firebase import db
+from app.services.jwt import verify_token
 from firebase_admin import firestore
 from typing import Optional
 import re
@@ -57,8 +58,10 @@ class DocumentModel(BaseModel):
 
 # ─── Get All Documents ───
 @router.get("/{user_id}")
-async def get_documents(user_id: str):
+async def get_documents(user_id: str, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
         docs = db.collection("users").document(user_id).collection("documents").stream()
         result = []
         for doc in docs:
@@ -66,13 +69,17 @@ async def get_documents(user_id: str):
             d["id"] = doc.id
             result.append(d)
         return {"documents": result}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 # ─── Add Document ───
 @router.post("/{user_id}")
-async def add_document(user_id: str, data: DocumentModel):
+async def add_document(user_id: str, data: DocumentModel, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
         doc_ref = db.collection("users").document(user_id).collection("documents").document()
         doc_ref.set({
             "documentType": data.documentType,
@@ -86,6 +93,8 @@ async def add_document(user_id: str, data: DocumentModel):
             "message": "Document added successfully",
             "documentId": doc_ref.id
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -93,8 +102,10 @@ async def add_document(user_id: str, data: DocumentModel):
 
 # ─── Update Document ───
 @router.put("/{user_id}/{document_id}")
-async def update_document(user_id: str, document_id: str, data: DocumentModel):
+async def update_document(user_id: str, document_id: str, data: DocumentModel, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
         db.collection("users").document(user_id).collection("documents").document(document_id).update({
             "documentType": data.documentType,
             "documentName": data.documentName,
@@ -103,6 +114,8 @@ async def update_document(user_id: str, document_id: str, data: DocumentModel):
             "notes": data.notes,
         })
         return {"message": "Document updated successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -110,17 +123,23 @@ async def update_document(user_id: str, document_id: str, data: DocumentModel):
 
 # ─── Delete Document ───
 @router.delete("/{user_id}/{document_id}")
-async def delete_document(user_id: str, document_id: str):
+async def delete_document(user_id: str, document_id: str, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
         db.collection("users").document(user_id).collection("documents").document(document_id).delete()
         return {"message": "Document deleted successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 # ─── Get Document Status ───
 @router.get("/{user_id}/{document_id}/status")
-async def get_document_status(user_id: str, document_id: str):
+async def get_document_status(user_id: str, document_id: str, token: dict = Depends(verify_token)):
     try:
+        if token.get("uid") != user_id:
+            raise HTTPException(status_code=403, detail="Access denied.")
         doc = db.collection("users").document(user_id).collection("documents").document(document_id).get()
         if not doc.exists:
             raise HTTPException(status_code=404, detail="Document not found")
