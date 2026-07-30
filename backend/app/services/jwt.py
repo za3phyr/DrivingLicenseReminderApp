@@ -1,35 +1,25 @@
-from jose import JWTError, jwt
-from datetime import datetime, timedelta
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import os
-
-# ─── Config ───
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 24
+from firebase_admin import auth as firebase_auth
+from firebase_admin.auth import (
+    InvalidIdTokenError,
+    ExpiredIdTokenError,
+    RevokedIdTokenError,
+)
 
 security = HTTPBearer()
 
-# ─── Generate Token ───
-def create_access_token(uid: str, email: str):
-    expire = datetime.utcnow() + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
-    payload = {
-        "uid": uid,
-        "email": email,
-        "exp": expire
-    }
-    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-    return token
-
 # ─── Verify Token ───
+# The frontend authenticates with the Firebase client SDK and sends the
+# resulting Firebase ID token (see AuthContext.js -> firebaseUser.getIdToken()).
+# So verification here must check that token with the Firebase Admin SDK,
+# not decode a custom app-issued JWT.
 def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+    token = credentials.credentials
     try:
-        token = credentials.credentials
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        uid = payload.get("uid")
-        if uid is None:
+        decoded = firebase_auth.verify_id_token(token)
+        if decoded.get("uid") is None:
             raise HTTPException(status_code=401, detail="Invalid token")
-        return payload
-    except JWTError:
+        return decoded
+    except (InvalidIdTokenError, ExpiredIdTokenError, RevokedIdTokenError):
         raise HTTPException(status_code=401, detail="Invalid or expired token")

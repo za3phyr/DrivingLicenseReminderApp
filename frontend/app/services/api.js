@@ -1,10 +1,9 @@
-const BASE_URL = 'http://172.20.13.204:8000';
-
+const BASE_URL = "http://192.168.254.40:8000";
 // ─── Helper ───
 const handleResponse = async (response) => {
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.detail || 'Something went wrong');
+    throw new Error(data.detail || "Something went wrong");
   }
   return data;
 };
@@ -19,15 +18,15 @@ export const setAuthToken = (token) => {
 export const getAuthToken = () => authToken;
 
 const authHeaders = () => ({
-  'Content-Type': 'application/json',
+  "Content-Type": "application/json",
   ...(authToken && { Authorization: `Bearer ${authToken}` }),
 });
 
 // ─── Auth ───
 export const registerUser = async (email, password, name, surname, dob) => {
   const response = await fetch(`${BASE_URL}/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password, name, surname, dob }),
   });
   return handleResponse(response);
@@ -35,17 +34,20 @@ export const registerUser = async (email, password, name, surname, dob) => {
 
 export const loginUser = async (email, password) => {
   const response = await fetch(`${BASE_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
   return handleResponse(response);
 };
 
 export const forgotPassword = async (email) => {
-  const response = await fetch(`${BASE_URL}/auth/forgot-password?email=${email}`, {
-    method: 'POST',
-  });
+  const response = await fetch(
+    `${BASE_URL}/auth/forgot-password?email=${email}`,
+    {
+      method: "POST",
+    },
+  );
   return handleResponse(response);
 };
 
@@ -59,7 +61,7 @@ export const getProfile = async (userId) => {
 
 export const updatePersonal = async (userId, data) => {
   const response = await fetch(`${BASE_URL}/profile/${userId}/personal`, {
-    method: 'PUT',
+    method: "PUT",
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
@@ -68,7 +70,7 @@ export const updatePersonal = async (userId, data) => {
 
 export const updateLicense = async (userId, data) => {
   const response = await fetch(`${BASE_URL}/profile/${userId}/license`, {
-    method: 'PUT',
+    method: "PUT",
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
@@ -77,7 +79,7 @@ export const updateLicense = async (userId, data) => {
 
 export const updatePreferences = async (userId, data) => {
   const response = await fetch(`${BASE_URL}/profile/${userId}/preferences`, {
-    method: 'PUT',
+    method: "PUT",
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
@@ -94,7 +96,7 @@ export const getVehicles = async (userId) => {
 
 export const addVehicle = async (userId, data) => {
   const response = await fetch(`${BASE_URL}/vehicles/${userId}`, {
-    method: 'POST',
+    method: "POST",
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
@@ -103,7 +105,7 @@ export const addVehicle = async (userId, data) => {
 
 export const updateVehicleById = async (userId, vehicleId, data) => {
   const response = await fetch(`${BASE_URL}/vehicles/${userId}/${vehicleId}`, {
-    method: 'PUT',
+    method: "PUT",
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
@@ -112,7 +114,7 @@ export const updateVehicleById = async (userId, vehicleId, data) => {
 
 export const deleteVehicle = async (userId, vehicleId) => {
   const response = await fetch(`${BASE_URL}/vehicles/${userId}/${vehicleId}`, {
-    method: 'DELETE',
+    method: "DELETE",
     headers: authHeaders(),
   });
   return handleResponse(response);
@@ -128,7 +130,7 @@ export const getDocuments = async (userId) => {
 
 export const addDocument = async (userId, data) => {
   const response = await fetch(`${BASE_URL}/documents/${userId}`, {
-    method: 'POST',
+    method: "POST",
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
@@ -136,17 +138,23 @@ export const addDocument = async (userId, data) => {
 };
 
 export const deleteDocument = async (userId, documentId) => {
-  const response = await fetch(`${BASE_URL}/documents/${userId}/${documentId}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  });
+  const response = await fetch(
+    `${BASE_URL}/documents/${userId}/${documentId}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(),
+    },
+  );
   return handleResponse(response);
 };
 
 export const getDocumentStatus = async (userId, documentId) => {
-  const response = await fetch(`${BASE_URL}/documents/${userId}/${documentId}/status`, {
-    headers: authHeaders(),
-  });
+  const response = await fetch(
+    `${BASE_URL}/documents/${userId}/${documentId}/status`,
+    {
+      headers: authHeaders(),
+    },
+  );
   return handleResponse(response);
 };
 
@@ -160,7 +168,7 @@ export const getReminders = async (userId) => {
 
 export const updateReminderSettings = async (userId, data) => {
   const response = await fetch(`${BASE_URL}/reminders/${userId}`, {
-    method: 'PUT',
+    method: "PUT",
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
